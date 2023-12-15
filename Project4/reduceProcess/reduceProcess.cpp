@@ -72,4 +72,8 @@ int main()
     //Sorted, aggregated, and reduced output string is written into final output file
     FileManage.WriteToOutputFile(outputDirectory, reduced_string);
     cout << "Reduced string written to output file.\n";
+        
+    system("pause");
+
+    FreeLibrary(reduceDLL);
 }
