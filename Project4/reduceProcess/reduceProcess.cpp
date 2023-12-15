@@ -15,6 +15,7 @@
 #include <iphlpapi.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <time.h>
 
 #include "File Management.h"
 #include "C:\Users\moimeme\Downloads\CSE-687-Object-Oriented-Design-Project-4-testing\CSE-687-Object-Oriented-Design-Project-4-testing\Project4\ReduceDLL\ReduceInterface.h"
@@ -37,17 +38,24 @@ using std::cout;
 using std::cin;
 using std::endl;
 
+int Reducer();
+
 typedef ReduceInterface* (*CREATE_REDUCER) ();
 
 int main(int argc, char** argv)
 {
-    
+    // Time variables
+    time_t seconds;
+    seconds = time(NULL);
+    int delay = 1000;
+
+
     WSADATA wsaData;
     SOCKET ConnectSocket = INVALID_SOCKET;
     struct addrinfo* result = NULL,
         * ptr = NULL,
         hints;
-    const char* sendbuf = "this is a test";
+    const char* sendbuf = "Reducer Process is running."; // Message to be sent to controller
     char recvbuf[DEFAULT_BUFLEN];
     int iResult;
     int recvbuflen = DEFAULT_BUFLEN;
@@ -108,67 +116,22 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    // Send an initial buffer
-    iResult = send(ConnectSocket, sendbuf, (int)strlen(sendbuf), 0);
-    if (iResult == SOCKET_ERROR) {
-        printf("send failed with error: %d\n", WSAGetLastError());
-        closesocket(ConnectSocket);
-        WSACleanup();
-        return 1;
+    //reccurring heartbeat message to server (controller) every k = 1 second 
+    while (Reducer() != 0)
+    {
+        // Send an initial buffer
+        iResult = send(ConnectSocket, sendbuf, (int)strlen(sendbuf), 0);
+        if (iResult == SOCKET_ERROR) {
+            printf("send failed with error: %d\n", WSAGetLastError());
+            closesocket(ConnectSocket);
+            WSACleanup();
+            return 1;
+        }
+        
+        Sleep(delay);
     }
 
     printf("Bytes Sent: %ld\n", iResult);
-
-    /****** REDUCE WORKFLOW ******/
-    string fileName = "";  // Temporary
-    string fileString = "";  // Temporary
-    string inputDirectory = "";  // Temporary
-    string outputDirectory = "";  // Temporary
-    string tempDirectory = "";  // Temporary
-
-    string reduced_string;
-    
-    FileManagement FileManage(inputDirectory, outputDirectory, tempDirectory); //Create file management class based on the user inputs
-    cout << "FileManagement Class initialized.\n";
-
-    HMODULE reduceDLL = LoadLibraryA("ReduceDLL.dll"); // load dll for library functions
-    if (reduceDLL == NULL) // exit main function if reduceDLL is not found
-    {
-        cout << "Failed to load reduceDLL." << endl;
-        return 1;
-    }
-    
-    CREATE_REDUCER reducerPtr = (CREATE_REDUCER)GetProcAddress(reduceDLL, "CreateReduce");  // create pointer to function to create new Reduce object
-    ReduceInterface* pReducer = reducerPtr();
-
-    //Read from intermediate file and pass data to Reduce class
-    fileString = FileManage.ReadSingleFile(tempDirectory);     //Read single file into single string
-    //cout << "Single file read.\n";
-
-    pReducer->import(fileString);
-    //cout << "String imported by reduce class function and placed in vector.\n";
-
-    pReducer->sort();
-    //cout << "Vector sorted.\n";
-
-    pReducer->aggregate();
-    //cout << "Vector aggregated.\n";
-
-    pReducer->reduce();
-    //cout << "Vector reduced.\n";
-
-    reduced_string = pReducer->vector_export();
-    //cout << "Vector exported to string.\n";
-
-    //Sorted, aggregated, and reduced output string is written into final output file
-    FileManage.WriteToOutputFile(outputDirectory, reduced_string);
-    cout << "Reduced string written to output file.\n";
-    
-    system("pause");
-
-    FreeLibrary(reduceDLL);
-
-    /***************************/
 
         // shutdown the connection since no more data will be sent
     iResult = shutdown(ConnectSocket, SD_SEND);
@@ -198,4 +161,57 @@ int main(int argc, char** argv)
 
     return 0;
 
+}
+
+int Reducer()
+{
+    string fileName = "";  // Temporary
+    string fileString = "";  // Temporary
+    string inputDirectory = "";  // Temporary
+    string outputDirectory = "";  // Temporary
+    string tempDirectory = "";  // Temporary
+
+    string reduced_string;
+
+    FileManagement FileManage(inputDirectory, outputDirectory, tempDirectory); //Create file management class based on the user inputs
+    cout << "FileManagement Class initialized.\n";
+
+    HMODULE reduceDLL = LoadLibraryA("ReduceDLL.dll"); // load dll for library functions
+    if (reduceDLL == NULL) // exit main function if reduceDLL is not found
+    {
+        cout << "Failed to load reduceDLL." << endl;
+        return 1;
+    }
+
+    CREATE_REDUCER reducerPtr = (CREATE_REDUCER)GetProcAddress(reduceDLL, "CreateReduce");  // create pointer to function to create new Reduce object
+    ReduceInterface* pReducer = reducerPtr();
+
+    //Read from intermediate file and pass data to Reduce class
+    fileString = FileManage.ReadSingleFile(tempDirectory);     //Read single file into single string
+    //cout << "Single file read.\n";
+
+    pReducer->import(fileString);
+    //cout << "String imported by reduce class function and placed in vector.\n";
+
+    pReducer->sort();
+    //cout << "Vector sorted.\n";
+
+    pReducer->aggregate();
+    //cout << "Vector aggregated.\n";
+
+    pReducer->reduce();
+    //cout << "Vector reduced.\n";
+
+    reduced_string = pReducer->vector_export();
+    //cout << "Vector exported to string.\n";
+
+    //Sorted, aggregated, and reduced output string is written into final output file
+    FileManage.WriteToOutputFile(outputDirectory, reduced_string);
+    cout << "Reduced string written to output file.\n";
+
+    system("pause");
+
+    FreeLibrary(reduceDLL);
+
+    return 0;
 }
