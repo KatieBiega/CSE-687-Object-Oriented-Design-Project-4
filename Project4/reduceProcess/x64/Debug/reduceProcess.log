@@ -1,0 +1,6 @@
+﻿  reduceProcess.cpp
+C:\Users\moimeme\Downloads\CSE-687-Object-Oriented-Design-Project-4-testing\CSE-687-Object-Oriented-Design-Project-4-testing\Project4\reduceProcess\reduceProcess.cpp(39,64): error C2065: 'reduceDLL': undeclared identifier
+C:\Users\moimeme\Downloads\CSE-687-Object-Oriented-Design-Project-4-testing\CSE-687-Object-Oriented-Design-Project-4-testing\Project4\reduceProcess\reduceProcess.cpp(43,44): error C2065: 'sourceName': undeclared identifier
+C:\Users\moimeme\Downloads\CSE-687-Object-Oriented-Design-Project-4-testing\CSE-687-Object-Oriented-Design-Project-4-testing\Project4\reduceProcess\reduceProcess.cpp(58,5): error C2065: 'reduced_string': undeclared identifier
+C:\Users\moimeme\Downloads\CSE-687-Object-Oriented-Design-Project-4-testing\CSE-687-Object-Oriented-Design-Project-4-testing\Project4\reduceProcess\reduceProcess.cpp(62,34): error C2065: 'destinationName': undeclared identifier
+C:\Users\moimeme\Downloads\CSE-687-Object-Oriented-Design-Project-4-testing\CSE-687-Object-Oriented-Design-Project-4-testing\Project4\reduceProcess\reduceProcess.cpp(62,51): error C2065: 'reduced_string': undeclared identifier
