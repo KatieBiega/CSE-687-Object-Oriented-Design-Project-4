@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+#include <thread>
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <iphlpapi.h>
@@ -37,6 +38,7 @@ using std::getline;
 using std::cout;
 using std::cin;
 using std::endl;
+using std::thread;
 
 int Reducer();
 
@@ -44,9 +46,6 @@ typedef ReduceInterface* (*CREATE_REDUCER) ();
 
 int main(int argc, char** argv)
 {
-    //Reduce workflow for all FileMangement and ReduceDLL function calls  
-    Reducer();
-    
     // Time variables
     time_t seconds;
     seconds = time(NULL);
@@ -119,6 +118,8 @@ int main(int argc, char** argv)
         return 1;
     }
 
+    thread task(Reducer);
+
     //reccurring heartbeat message to server (controller) every k = 1 second 
     while (Reducer() != 0)
     {
@@ -135,6 +136,11 @@ int main(int argc, char** argv)
     }
 
     printf("Bytes Sent: %ld\n", iResult);
+
+    //Reduce workflow for all FileMangement and ReduceDLL function calls  
+    Reducer();
+
+    task.join();
 
         // shutdown the connection since no more data will be sent
     iResult = shutdown(ConnectSocket, SD_SEND);
