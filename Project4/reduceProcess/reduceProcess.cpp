@@ -118,7 +118,8 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    //Reduce workflow for all FileMangement and ReduceDLL function calls in seperate thread running in parallel and sharing memory 
+    // Reduce workflow for all FileMangement and ReduceDLL function calls in seperate thread running in parallel and sharing memory
+    // Non-blocking so Main thread will continue to execute  
     thread task(Reducer);
 
     //reccurring heartbeat message to server (controller) every k = 1 second 
@@ -138,7 +139,7 @@ int main(int argc, char** argv)
 
     printf("Bytes Sent: %ld\n", iResult);
 
-    //Reducer thread ended and joined back in main thread
+    // Reducer thread ended and joined back in main thread
     task.join();
 
         // shutdown the connection since no more data will be sent
