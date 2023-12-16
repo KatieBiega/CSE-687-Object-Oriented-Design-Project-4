@@ -1,5 +1,6 @@
 #define _CRT_SECURE_NO_WARNINGS
 #define WIN32_LEAN_AND_MEAN
+#define _WINSOCK_DEPRCATED_NO_WARNINGS
 
 
 #include <iostream>
@@ -257,7 +258,7 @@ int main(int argc, char* argv[]) {
     mapServerAddr.sin_addr.s_addr = INADDR_ANY;
 
     reduceServerAddr.sin_family = AF_INET;
-    reduceServerAddr.sin_port = htons(11111);  // Example port for reduce server
+    reduceServerAddr.sin_port = htons(11112);  // Example port for reduce server
     reduceServerAddr.sin_addr.s_addr = INADDR_ANY;
 
     // Bind and listen for map server socket
