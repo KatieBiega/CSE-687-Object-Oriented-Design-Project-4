@@ -27,7 +27,7 @@
 #pragma comment (lib, "AdvApi32.lib")
 
 #define DEFAULT_BUFLEN 512
-#define DEFAULT_PORT "27015"
+#define DEFAULT_PORT "11112"
 
 using std::stringstream;
 using std::vector;
@@ -40,12 +40,19 @@ using std::cin;
 using std::endl;
 using std::thread;
 
-int Reducer();
+int Reducer(string&, string&, string&);
 
 typedef ReduceInterface* (*CREATE_REDUCER) ();
 
-int main(int argc, char** argv)
+int main(char **argv)
 {
+    //Directory inputs bieng passed by Stub process
+    string inputDirectory (argv[0]);
+    string tempDirectory (argv[1]);
+    string outputDirectory (argv[2]);
+    
+    PCSTR serverAddress;
+
     // Time variables
     time_t seconds;
     seconds = time(NULL);
@@ -62,13 +69,7 @@ int main(int argc, char** argv)
     int iResult;
     int recvbuflen = DEFAULT_BUFLEN;
 
-    // Validate the parameters
-    if (argc != 2) {
-        printf("usage: %s server-name\n", argv[0]);
-        return 1;
-    }
-
-    // Initialize Winsock
+     // Initialize Winsock
     iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
     if (iResult != 0) {
         printf("WSAStartup failed with error: %d\n", iResult);
@@ -81,7 +82,7 @@ int main(int argc, char** argv)
     hints.ai_protocol = IPPROTO_TCP;
 
     // Resolve the server address and port
-    iResult = getaddrinfo(argv[1], DEFAULT_PORT, &hints, &result);
+    iResult = getaddrinfo(serverAddress, DEFAULT_PORT, &hints, &result);
     if (iResult != 0) {
         printf("getaddrinfo failed with error: %d\n", iResult);
         WSACleanup();
@@ -120,10 +121,10 @@ int main(int argc, char** argv)
 
     // Reduce workflow for all FileMangement and ReduceDLL function calls in seperate thread running in parallel and sharing memory
     // Non-blocking so Main thread will continue to execute  
-    thread task(Reducer);
+    thread task(Reducer(inputDirectory, tempDirectory, outputDirectory));
 
     //reccurring heartbeat message to server (controller) every k = 1 second 
-    while (Reducer() != 0)
+    while (Reducer(inputDirectory, tempDirectory, outputDirectory) != 0)
     {
         // Send an initial buffer
         iResult = send(ConnectSocket, sendbuf, (int)strlen(sendbuf), 0);
@@ -172,14 +173,10 @@ int main(int argc, char** argv)
 
 }
 
-int Reducer()
+int Reducer(string& inputDirectory, string& tempDirectory, string& outputDirectory)
 {
     string fileName = "";  // Temporary
     string fileString = "";  // Temporary
-    string inputDirectory = "";  // Temporary
-    string outputDirectory = "";  // Temporary
-    string tempDirectory = "";  // Temporary
-
     string reduced_string;
 
     FileManagement FileManage(inputDirectory, outputDirectory, tempDirectory); //Create file management class based on the user inputs
