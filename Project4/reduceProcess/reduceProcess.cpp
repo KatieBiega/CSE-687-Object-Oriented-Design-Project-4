@@ -44,6 +44,9 @@ typedef ReduceInterface* (*CREATE_REDUCER) ();
 
 int main(int argc, char** argv)
 {
+    //Reduce workflow for all FileMangement and ReduceDLL function calls  
+    Reducer();
+    
     // Time variables
     time_t seconds;
     seconds = time(NULL);
