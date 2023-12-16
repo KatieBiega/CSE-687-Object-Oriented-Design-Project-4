@@ -175,53 +175,56 @@ int main(int argc, char** argv)
 
 }
 
-void Map::map(string& line)
+int Map()
 {
-	//Initializing temporary string for buffering words
-	string temp = "";
+    string fileName = "";  // Temporary
+    string fileString = "";  // Temporary
+    string inputDirectory = "";  // Temporary
+    string outputDirectory = "";  // Temporary
+    string tempDirectory = "";  // Temporary
 
-	//Remove all punctuation and special characters except spaces from the input line
-	int index;
-	while ((index = line.find_first_of(".,-&!?\\;*+[]<>()'")) != string::npos)
-	{
-		line.erase(index, 1);
-		//cout << "Erase line in mapping.\n";
-	}
+    string mapped_string;
 
-	//Replace additonal special charcters with space for delimiting
-	replace(line.begin(), line.end(), '\n', ' ');
-	replace(line.begin(), line.end(), ':', ' ');
-	replace(line.begin(), line.end(), '-', ' ');
+    FileManagement FileManage(inputDirectory, outputDirectory, tempDirectory); //Create file management class based on the user inputs
+    cout << "FileManagement Class initialized.\n";
 
-	//Set all alphabetic characters in input line to lower case 
-	transform(line.begin(), line.end(), line.begin(),
-		[](unsigned char c) { return tolower(c); });
+     HMODULE mapDLL = LoadLibraryA("MapDLL.dll"); // load dll for map functions
+    if (mapDLL == NULL) // exit main function if mapDLL is not found
+    {
+        cout << "Failed to load mapDLL." << endl;
+        return 1;
+    }
 
-	//streaming input line string delimtted by spaces for tokenization
-	stringstream ss(line);
+    FileManagement FileManage(inputDirectory, outputDirectory, tempDirectory); //Create file management class based on the user inputs
+    cout << "FileManagement Class initialized.\n";
 
-	//Iterating through string stream to create and store vector of words 
-	while (ss >> temp)
-	{
-		words.push_back(temp);
-		//cout << "Pushing to temp string in map...\n";
-	}
-	
-}
+    if (functionSelector == "map") {
+        
+        CREATE_MAPPER mapperPtr = (CREATE_MAPPER)GetProcAddress(mapDLL, "CreateMap"); // create pointer to function to create new Map object
+        MapInterface* pMapper = mapperPtr();
 
-string Map::vector_export()
-{
-	//All words stored in vector from input file are written into the intermediate file as (key, value) pair 
-	for (int i = 0; i < words.size(); i++)
-	{
-		content = content + "(" + "\"" + words[i] + "\"" + ", 1)\n";
-		//cout << "Storing key-value pairs in string in map...\n";
-	}
+        fileString = FileManage.ReadSingleFile(sourceName);     //Read single file into single string
+        //cout << "Single file read.\n";
 
-	return content;
-}
+        //cout << "Strings from files passed to map function.\n";
+        pMapper->map(fileString);
 
-Map* CreateMap()
-{
-	return new Map();
+        //cout << "Mapping complete; exporting resulting string.\n";
+        mapped_string = pMapper->vector_export();     //Write mapped output string to intermediate file 
+
+
+
+        FileManage.WriteToTempFile(outputFilename, mapped_string);
+        cout << "String from mapping written to temp file.\n";
+        
+        return 0;
+        
+    }
+
+
+    system("pause");
+
+    FreeLibrary(mapDLL);
+
+    return 0;
 }
