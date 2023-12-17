@@ -32,6 +32,7 @@
 #include <time.h>
 #include <tchar.h>
 #include <strsafe.h>
+#include <thread>
 
 #include "../MapDLL/MapInterface.h"
 #include "File Management.h"
@@ -53,6 +54,7 @@ using std::thread;
 using std::cout;
 using std::cin;
 using std::endl;
+using std::thread;
 
 DWORD WINAPI Mapper(LPVOID lpParam);
 
@@ -111,23 +113,13 @@ int main(int argc, char** argv)
     }
 
     // Create the thread to begin execution on its own.
+    thread mapperThread(Mapper, pData);
 
-    hThread = CreateThread(
-        NULL,                   // default security attributes
-        0,                      // use default stack size  
-        Mapper,       // thread function name
-        pData,          // argument to thread function 
-        0,                      // use default creation flags 
-        &dwThreadId);   // returns the thread identifier 
+    if (mapperThread.joinable())
+    {
+        mapperThread.join();
+    }
 
-        // Check the return value for success.
-        // If CreateThread fails, terminate execution. 
-        // This will automatically clean up threads and memory. 
-
-     if (hThread == NULL) 
-     {
-        ExitProcess(3);
-     }
     // End of main thread creation loop.
 
     // Wait until all threads have terminated.
