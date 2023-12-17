@@ -18,9 +18,11 @@
 #include <time.h>
 #include <tchar.h>
 #include <strsafe.h>
+#include <thread>
 
 #include "File Management.h"
-#include "C:\Users\moimeme\Downloads\CSE-687-Object-Oriented-Design-Project-4-testing\CSE-687-Object-Oriented-Design-Project-4-testing\Project4\ReduceDLL\ReduceInterface.h"
+#include "../ReduceDLL/ReduceInterface.h"
+
 
 // Need to link with Ws2_32.lib, Mswsock.lib, and Advapi32.lib
 #pragma comment (lib, "Ws2_32.lib")
@@ -43,10 +45,15 @@ using std::getline;
 using std::cout;
 using std::cin;
 using std::endl;
+using std::thread;
 
 DWORD WINAPI Reducer(LPVOID lpParam);
 
 typedef ReduceInterface* (*CREATE_REDUCER) ();
+
+
+
+
 
 // Sample custom data structure for threads to use.
 // This is passed by void pointer so it can be any data type
@@ -57,12 +64,26 @@ typedef struct MyData {
     string outputDirectory;
 } MYDATA, * PMYDATA;
 
-int main(char **argv)
+int main(int argc, char **argv)
 {
-    //Directory inputs bieng passed by Stub process
-    string inputDirectory = argv[0];
-    string tempDirectory = argv[1];
-    string outputDirectory = argv[2];
+    cout << "Test 1" << endl;
+    // Directory inputs bieng passed by Stub process
+    string inputDirectory = "0";
+    string tempDirectory = "1";
+    string outputDirectory = "2";
+
+    if (argc = 3, argc >3)
+    {
+        // Directory inputs bieng passed by Stub process
+       inputDirectory = argv[0];
+       tempDirectory = argv[1];
+       outputDirectory = argv[2];
+    }
+    else
+    {
+ 
+    }
+  
 
     MyData data; //(MyData*) malloc(sizeof(MyData));
     data.inputDirectory = inputDirectory;
@@ -72,7 +93,7 @@ int main(char **argv)
     cout << data.inputDirectory;
     cout << data.tempDirectory;
     cout << data.outputDirectory;
-
+ 
     system("pause");
 
     // Time variables
@@ -97,31 +118,27 @@ int main(char **argv)
         ExitProcess(2);
     }
 
+    cout << "Test 2" << endl;
+    pData->inputDirectory = inputDirectory;
+    pData->tempDirectory = tempDirectory;
+    pData->outputDirectory = outputDirectory;
+
     // Create the thread to begin execution on its own.
+    hThread = CreateThread(NULL, 0, Reducer, pData, 0, NULL);
 
-    hThread = CreateThread(
-        NULL,                   // default security attributes
-        0,                      // use default stack size  
-        Reducer,       // thread function name
-        pData,          // argument to thread function 
-        0,                      // use default creation flags 
-        &dwThreadId);   // returns the thread identifier 
+    if (hThread == NULL)
+    {
+        std::cerr << "Failed to create thread." << endl;
+        return 1;
+    }
 
-        // Check the return value for success.
-        // If CreateThread fails, terminate execution. 
-        // This will automatically clean up threads and memory. 
-
-     if (hThread == NULL) 
-     {
-        ExitProcess(3);
-     }
     // End of main thread creation loop.
 
     // Wait until all threads have terminated.
     //WaitForMultipleObjects(1, hThread, TRUE, INFINITE);
 
     // Close all thread handles and free memory allocations.
-    //CloseHandle(hThread);
+    CloseHandle(hThread);
 
     if(pData != NULL)
     {
@@ -163,7 +180,7 @@ int main(char **argv)
         WSACleanup();
         return 1;
     }
-
+    cout << "Test 3" << endl;
     // Attempt to connect to an address until one succeeds
     for (ptr = result; ptr != NULL; ptr = ptr->ai_next) {
 
