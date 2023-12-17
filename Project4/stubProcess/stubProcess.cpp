@@ -6,7 +6,6 @@
 #include <ws2tcpip.h>
 #include <string>
 #include <iostream>
-#include <algorithm>
 #include <ws2def.h>
 
 using std::string;
@@ -50,7 +49,7 @@ int main()
     int action = 0; // determines process to execute; 1 should mean map, 2 should mean reduce, 3 should terminate the stub process, 0 or any oher value should perform no action
     int runCode = 0; // runtime and/or error code for winsock functions
 
-    string commandLineArguments ="\0"; // this should be retrieved from the controller (client) ex. "1needinputdirectoryhere needtempdirectoryhere needoutputdirectoryhere\0"
+    string commandLineArguments ="\0"; // this should be retrieved from the controller (client) ex. "mapProcess.exe needinputdirectoryhere needtempdirectoryhere needoutputdirectoryhere\0"
 
     int bytesReceived = 0;
 
@@ -58,11 +57,14 @@ int main()
     wchar_t* wtemp = (wchar_t*)malloc(10);
     size_t commandLength = 0;
 
+
+    
     struct addrinfo listener; // address info for the listener socket
     struct addrinfo* result = NULL;
 
     WSADATA wsaData;
 
+    //socket setup, resolve, bind, listen, and recv code derived from tutorial example from Microsoft found here: https://learn.microsoft.com/en-us/windows/win32/winsock/complete-server-code
 
     runCode = WSAStartup(MAKEWORD(2, 2), &wsaData); // start the winsock server, get a return code for the startup function, and terminate process if startup fails
     if (runCode != 0) {
@@ -134,7 +136,7 @@ int main()
 
     stubReceiver = accept(stubListener, NULL, NULL);    //attempt to accept a client socket
     if (stubReceiver == INVALID_SOCKET) {
-        printf("accept failed: %d\n", WSAGetLastError());
+        printf("Stub server failed to accept : %d\n", WSAGetLastError());
         closesocket(stubListener);
         WSACleanup();
         return 1;
@@ -147,24 +149,31 @@ int main()
     // keep getting input from controller until connection is broken or the controller forcibly terminates the stub process
     do {
         cout << "Receiving input.\n";
-        bytesReceived = recv(stubListener, bufferChars, bufferLength, 0);
+        bytesReceived = recv(stubReceiver, bufferChars, bufferLength, 0);
         if (bytesReceived > 0) {
 
-            cout << "Bytes received:" << runCode << "\n";
+            cout << "Bytes received:" << bytesReceived << "\n";
 
             // need to parse buffer string and convert to arguments and action variable
             action = bufferChars[0] - '0';// first character of the buffer should be the action integer
 
             commandLineArguments = bufferChars;// set command line arguments as equal to the buffer character array, then remove the first character
-            commandLineArguments.substr(1, commandLineArguments.length() - 2);
+            commandLineArguments.erase(0, 1);
 
             if (action == 1) // map process
             {
-                commandLineArguments = "\\mapProcess.exe " + commandLineArguments;
+
+                commandLineArguments = "mapProcess.exe " + commandLineArguments + "\0";
+
+
+                commandLength = commandLineArguments.length();
+                cout << "Arguments for map process:" << commandLineArguments << "\n";
                 wtemp = (wchar_t*)malloc(4 * commandLineArguments.size());
                 mbstowcs(wtemp, commandLineArguments.c_str(), commandLength); //includes null
                 LPWSTR args = wtemp;
 
+
+                //child process creation code derived from Microsoft tutorial example here: https://learn.microsoft.com/en-us/windows/win32/procthread/creating-processes
                 cout << "Attempting to create map process...\n";
                 // Start the child map process. 
                 if (!CreateProcess(
@@ -180,7 +189,7 @@ int main()
                     &pim)           // Pointer to PROCESS_INFORMATION structure
                     )
                 {
-                    cout << "CreateProcess for mapper failed" << GetLastError() << "\n";
+                    cout << "CreateProcess for mapper failed: " << GetLastError() << "\n";
 
                 }
                 else {
@@ -194,11 +203,14 @@ int main()
 
             else if (action == 2) // reduce process
             {
-                commandLineArguments = "\\reduceProcess.exe " + commandLineArguments;
+                commandLineArguments = "reduceProcess.exe " + commandLineArguments + "\0";
+                commandLength = commandLineArguments.length();
+                cout << "Arguments for reduce process:" << commandLineArguments << "\n";
                 wtemp = (wchar_t*)malloc(4 * commandLineArguments.size());
                 mbstowcs(wtemp, commandLineArguments.c_str(), commandLength); //includes null
                 LPWSTR args = wtemp;
 
+                //child process creation code derived from Microsoft tutorial example here: https://learn.microsoft.com/en-us/windows/win32/procthread/creating-processes
                 cout << "Attempting to create reduce process...\n";
                 // Start the child reduce process. 
                 if (!CreateProcess(
@@ -214,8 +226,7 @@ int main()
                     &pir)           // Pointer to PROCESS_INFORMATION structure
                     )
                 {
-                    cout << "CreateProcess for reducer failed" << GetLastError() << "\n";
-
+                    cout << "CreateProcess for reducer failed: " << GetLastError() << "\n";
                 }
                 else {
                     cout << "Reduce process was created successfully; waiting for process to complete.\n";
@@ -229,7 +240,7 @@ int main()
             else if (action == 3) // forced shutdown of stub process by controller
             {
                 cout << "Exiting process due to client command.\n";
-                exit(0);
+                return 0;
             }
 
             else
@@ -238,7 +249,8 @@ int main()
             }
         }
         else if (bytesReceived == 0)
-            cout << "Closing the connection...";
+            cout << "Connection to controller process lost. Closing the connection...";
+
         else {
             cout << "Failed to receive data. Error: " << WSAGetLastError() << "\n",
             closesocket(stubReceiver);
@@ -246,7 +258,7 @@ int main()
             return 1;
         }
 
-    } while (runCode > 0);
+    } while (bytesReceived > 0);
 
 
 }
