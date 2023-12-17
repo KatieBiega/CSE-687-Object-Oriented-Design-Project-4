@@ -13,7 +13,6 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 
-#include "pch.h"
 #include <cstdlib>
 #include <iostream>
 #include <fstream>
@@ -23,7 +22,6 @@
 #include <cctype>
 #include <sstream>
 #include <vector>
-#include "MapDLL.h"
 #include <Windows.h>
 #include <thread>
 #include <winsock2.h>
@@ -35,6 +33,9 @@
 #include <tchar.h>
 #include <strsafe.h>
 
+#include "../MapDLL/MapInterface.h"
+#include "File Management.h"
+
 #pragma comment (lib, "Ws2_32.lib")
 #pragma comment (lib, "Mswsock.lib")
 #pragma comment (lib, "AdvApi32.lib")
@@ -44,15 +45,18 @@
 #define SERVER_ADDRESS "127.0.0.1"
 #define BUF_SIZE 255
 
-int reducer_end_flag = 0;
+int mapper_end_flag = 0;
 
 using std::stringstream;
 using std::replace;
 using std::thread;
+using std::cout;
+using std::cin;
+using std::endl;
 
-DWORD WINAPI Maper(LPVOID lpParam);
+DWORD WINAPI Mapper(LPVOID lpParam);
 
-typedef MapInterface* (*CREATE_REDUCER) ();
+typedef MapInterface* (*CREATE_MAPPER) ();
 
 // Sample custom data structure for threads to use.
 // This is passed by void pointer so it can be any data type
@@ -63,8 +67,6 @@ typedef struct MyData {
     string outputDirectory;
 } MYDATA, * PMYDATA;
 
-
-int Maper();
 
 typedef MapInterface* (*CREATE_MAP) ();
 
@@ -113,7 +115,7 @@ int main(int argc, char** argv)
     hThread = CreateThread(
         NULL,                   // default security attributes
         0,                      // use default stack size  
-        Maper,       // thread function name
+        Mapper,       // thread function name
         pData,          // argument to thread function 
         0,                      // use default creation flags 
         &dwThreadId);   // returns the thread identifier 
@@ -212,10 +214,8 @@ int main(int argc, char** argv)
     }
 
 
-    thread task(Map);
-
     //reccurring heartbeat message to server (controller) every k = 1 second 
-    while (Map() != 0)
+    while (mapper_end_flag != 0)
     {
         // Send an initial buffer
         iResult = send(ConnectSocket, sendbuf, (int)strlen(sendbuf), 0);
@@ -232,7 +232,7 @@ int main(int argc, char** argv)
     printf("Bytes Sent: %ld\n", iResult);
 
     //Map thread ended and joined back in main thread
-    task.join();
+  
 
         // shutdown the connection since no more data will be sent
     iResult = shutdown(ConnectSocket, SD_SEND);
@@ -286,15 +286,12 @@ int Map()
         return 1;
     }
 
-    FileManagement FileManage(inputDirectory, outputDirectory, tempDirectory); //Create file management class based on the user inputs
-    cout << "FileManagement Class initialized.\n";
 
-    if (functionSelector == "map") {
         
         CREATE_MAPPER mapperPtr = (CREATE_MAPPER)GetProcAddress(mapDLL, "CreateMap"); // create pointer to function to create new Map object
         MapInterface* pMapper = mapperPtr();
 
-        fileString = FileManage.ReadSingleFile(sourceName);     //Read single file into single string
+        fileString = FileManage.ReadSingleFile(tempDirectory);     //Read single file into single string
         //cout << "Single file read.\n";
 
         //cout << "Strings from files passed to map function.\n";
@@ -305,19 +302,18 @@ int Map()
 
 
 
-        FileManage.WriteToTempFile(outputFilename, mapped_string);
+        FileManage.WriteToTempFile(outputDirectory, mapped_string);
         cout << "String from mapping written to temp file.\n";
         
         return 0;
         
-    }
-
+ 
 
     system("pause");
 
     FreeLibrary(mapDLL);
 
-    maper_end_flag = 1;
+    mapper_end_flag = 1;
 
     return 0;
 }
