@@ -32,29 +32,118 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
+#include <tchar.h>
+#include <strsafe.h>
 
 #pragma comment (lib, "Ws2_32.lib")
 #pragma comment (lib, "Mswsock.lib")
 #pragma comment (lib, "AdvApi32.lib")
 
 #define DEFAULT_BUFLEN 512
-#define DEFAULT_PORT "27015"
+#define DEFAULT_PORT "11112"
+#define SERVER_ADDRESS "127.0.0.1"
+#define BUF_SIZE 255
+
+int reducer_end_flag = 0;
 
 using std::stringstream;
 using std::replace;
 using std::thread;
 
-int Map();
+DWORD WINAPI Maper(LPVOID lpParam);
+
+typedef MapInterface* (*CREATE_REDUCER) ();
+
+// Sample custom data structure for threads to use.
+// This is passed by void pointer so it can be any data type
+// that can be passed using a single void pointer (LPVOID).
+typedef struct MyData {
+    string inputDirectory;
+    string tempDirectory;
+    string outputDirectory;
+} MYDATA, * PMYDATA;
+
+
+int Maper();
 
 typedef MapInterface* (*CREATE_MAP) ();
 
 int main(int argc, char** argv)
 {
+    //Directory inputs bieng passed by Stub process
+    string inputDirectory = argv[0];
+    string tempDirectory = argv[1];
+    string outputDirectory = argv[2];
+
+    MyData data; //(MyData*) malloc(sizeof(MyData));
+    data.inputDirectory = inputDirectory;
+    data.tempDirectory = tempDirectory;
+    data.outputDirectory = outputDirectory;
+
+    cout << data.inputDirectory;
+    cout << data.tempDirectory;
+    cout << data.outputDirectory;
+
+    system("pause");
+
     // Time variables
     time_t seconds;
     seconds = time(NULL);
     int delay = 1000;
 
+
+ /*********** START THREAD WORKFLOW ***********/
+    PMYDATA  pData;
+    DWORD   dwThreadId;
+    HANDLE  hThread;
+    
+    // Allocate memory for thread data.
+    pData = (PMYDATA) HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(MYDATA));
+
+    if (pData == NULL)
+    {
+        // If the array allocation fails, the system is out of memory
+        // so there is no point in trying to print an error message.
+        // Just terminate execution.
+        ExitProcess(2);
+    }
+
+    // Create the thread to begin execution on its own.
+
+    hThread = CreateThread(
+        NULL,                   // default security attributes
+        0,                      // use default stack size  
+        Maper,       // thread function name
+        pData,          // argument to thread function 
+        0,                      // use default creation flags 
+        &dwThreadId);   // returns the thread identifier 
+
+        // Check the return value for success.
+        // If CreateThread fails, terminate execution. 
+        // This will automatically clean up threads and memory. 
+
+     if (hThread == NULL) 
+     {
+        ExitProcess(3);
+     }
+    // End of main thread creation loop.
+
+    // Wait until all threads have terminated.
+    //WaitForMultipleObjects(1, hThread, TRUE, INFINITE);
+
+    // Close all thread handles and free memory allocations.
+    //CloseHandle(hThread);
+
+    if(pData != NULL)
+    {
+        HeapFree(GetProcessHeap(), 0, pData);
+        pData = NULL;    // Ensure address is not reused.
+    }
+
+    /*********** END THREAD WORKFLOW ***********/
+
+    
+    /*********** START SOCKET WORKFLOW ***********/
 
     WSADATA wsaData;
     SOCKET ConnectSocket = INVALID_SOCKET;
@@ -171,6 +260,8 @@ int main(int argc, char** argv)
     closesocket(ConnectSocket);
     WSACleanup();
 
+     /*********** END SOCKET WORKFLOW ***********/
+
     return 0;
 
 }
@@ -225,6 +316,8 @@ int Map()
     system("pause");
 
     FreeLibrary(mapDLL);
+
+    maper_end_flag = 1;
 
     return 0;
 }
