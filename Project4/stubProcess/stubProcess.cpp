@@ -30,6 +30,10 @@ PROCESS_INFORMATION pir;
 
 int main()
 {
+    
+    PCSTR localAddress = "127.0.0.1"; //define the server address
+    //sockaddr* clientAddress = "127.0.0.1";
+
     //Clear memory for map process startup pointers
     ZeroMemory(&sim, sizeof(sim));
     sim.cb = sizeof(sim);
@@ -45,8 +49,8 @@ int main()
 
     int action = 0; // determines process to execute; 1 should mean map, 2 should mean reduce, 3 should terminate the stub process, 0 or any oher value should perform no action
     int runCode = 0; // runtime and/or error code for winsock functions
-    string stringFromController = "\0";
-    string commandLineArguments = "needexehere needinputdirectoryhere needtempdirectoryhere needoutputdirectoryhere\0"; // this should be retrieved from the controller (client)
+
+    string commandLineArguments ="\0"; // this should be retrieved from the controller (client) ex. "1needinputdirectoryhere needtempdirectoryhere needoutputdirectoryhere\0"
 
     int bytesReceived = 0;
 
@@ -59,10 +63,14 @@ int main()
 
     WSADATA wsaData;
 
+
     runCode = WSAStartup(MAKEWORD(2, 2), &wsaData); // start the winsock server, get a return code for the startup function, and terminate process if startup fails
     if (runCode != 0) {
         cout << "Stub process WSAStartup failed with error: " << runCode << "\n";
         return 1;
+    }
+    else {
+        cout << "Winsock server startup successful.\n";
     }
 
     //set attributes for "listener" address. to be used for StubListener
@@ -73,11 +81,15 @@ int main()
     listener.ai_flags = AI_PASSIVE;
 
     //verify that the address parameters are set correctly
-    runCode = getaddrinfo(NULL, DEFAULT_PORT, &listener, &result);
+    runCode = getaddrinfo(localAddress, DEFAULT_PORT, &listener, &result);
     if (runCode != 0) {
         cout << "Failed to establish address info for stub process server listener- error: " << runCode << "\n";
         WSACleanup();
         return 1;
+    }
+    else {
+        cout << "Server address resolved successfully.\n";
+        cout << "Server (local) address: " << localAddress << "\n";
     }
 
     SOCKET stubListener = INVALID_SOCKET; // this socket waits for a signal to begin receiving data
@@ -90,6 +102,9 @@ int main()
         WSACleanup();
         return 1;
     }
+    else {
+        cout << "Stub listener socket initialized successfully.\n";
+    }
 
 
     runCode = bind(stubListener, result->ai_addr, (int)result->ai_addrlen); // attempt to bind the stubListener socket for TCP and end process if failure
@@ -100,6 +115,9 @@ int main()
         WSACleanup();
         return 1;
     }
+    else {
+        cout << "Stub listener bind successful.\n";
+    }
 
     if (listen(stubListener, SOMAXCONN) == SOCKET_ERROR) //begin listening 
     {
@@ -107,6 +125,9 @@ int main()
         closesocket(stubListener);
         WSACleanup();
         return 1;
+    }
+    else {
+        cout << "Stub listen function call successful. Waiting for signal from controller...\n";
     }
 
     SOCKET stubReceiver = INVALID_SOCKET; // this socket accepts input from the controller
@@ -118,26 +139,28 @@ int main()
         WSACleanup();
         return 1;
     }
+    else {
+        cout << "Stub accepted connection from controller.\n";
+    }
 
 
-    // Receive until the peer shuts down the connection
+    // keep getting input from controller until connection is broken or the controller forcibly terminates the stub process
     do {
-
+        cout << "Receiving input.\n";
         bytesReceived = recv(stubListener, bufferChars, bufferLength, 0);
         if (bytesReceived > 0) {
 
-            cout << "Bytes received:" << runCode <<
-                printf("Bytes received: %d\n", runCode);
+            cout << "Bytes received:" << runCode << "\n";
 
             // need to parse buffer string and convert to arguments and action variable
+            action = bufferChars[0] - '0';// first character of the buffer should be the action integer
 
-            //action = bufferChars;
-            //
-
+            commandLineArguments = bufferChars;// set command line arguments as equal to the buffer character array, then remove the first character
+            commandLineArguments.substr(1, commandLineArguments.length() - 2);
 
             if (action == 1) // map process
             {
-
+                commandLineArguments = "\\mapProcess.exe " + commandLineArguments;
                 wtemp = (wchar_t*)malloc(4 * commandLineArguments.size());
                 mbstowcs(wtemp, commandLineArguments.c_str(), commandLength); //includes null
                 LPWSTR args = wtemp;
@@ -171,6 +194,7 @@ int main()
 
             else if (action == 2) // reduce process
             {
+                commandLineArguments = "\\reduceProcess.exe " + commandLineArguments;
                 wtemp = (wchar_t*)malloc(4 * commandLineArguments.size());
                 mbstowcs(wtemp, commandLineArguments.c_str(), commandLength); //includes null
                 LPWSTR args = wtemp;
