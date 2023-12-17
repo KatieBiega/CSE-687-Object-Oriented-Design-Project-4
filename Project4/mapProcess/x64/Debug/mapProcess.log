@@ -1,0 +1,2 @@
+﻿mapProcess.obj : error LNK2019: unresolved external symbol "unsigned long __cdecl Mapper(void *)" (?Mapper@@YAKPEAX@Z) referenced in function main
+C:\Users\d17jo\Desktop\CSE-687-Object-Oriented-Design-Project-4-testing\Project4\x64\Debug\mapProcess.exe : fatal error LNK1120: 1 unresolved externals
