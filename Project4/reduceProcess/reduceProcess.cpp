@@ -10,13 +10,14 @@
 #include <string>
 #include <vector>
 #include <algorithm>
-#include <thread>
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <iphlpapi.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
+#include <tchar.h>
+#include <strsafe.h>
 
 #include "File Management.h"
 #include "C:\Users\moimeme\Downloads\CSE-687-Object-Oriented-Design-Project-4-testing\CSE-687-Object-Oriented-Design-Project-4-testing\Project4\ReduceDLL\ReduceInterface.h"
@@ -28,6 +29,10 @@
 
 #define DEFAULT_BUFLEN 512
 #define DEFAULT_PORT "11112"
+#define SERVER_ADDRESS "127.0.0.1"
+#define BUF_SIZE 255
+
+int reducer_end_flag = 0;
 
 using std::stringstream;
 using std::vector;
@@ -38,26 +43,96 @@ using std::getline;
 using std::cout;
 using std::cin;
 using std::endl;
-using std::thread;
 
-int Reducer(string&, string&, string&);
+DWORD WINAPI Reducer(LPVOID lpParam);
 
 typedef ReduceInterface* (*CREATE_REDUCER) ();
+
+// Sample custom data structure for threads to use.
+// This is passed by void pointer so it can be any data type
+// that can be passed using a single void pointer (LPVOID).
+typedef struct MyData {
+    string inputDirectory;
+    string tempDirectory;
+    string outputDirectory;
+} MYDATA, * PMYDATA;
 
 int main(char **argv)
 {
     //Directory inputs bieng passed by Stub process
-    string inputDirectory (argv[0]);
-    string tempDirectory (argv[1]);
-    string outputDirectory (argv[2]);
-    
-    PCSTR serverAddress;
+    string inputDirectory = argv[0];
+    string tempDirectory = argv[1];
+    string outputDirectory = argv[2];
+
+    MyData data; //(MyData*) malloc(sizeof(MyData));
+    data.inputDirectory = inputDirectory;
+    data.tempDirectory = tempDirectory;
+    data.outputDirectory = outputDirectory;
+
+    cout << data.inputDirectory;
+    cout << data.tempDirectory;
+    cout << data.outputDirectory;
+
+    system("pause");
 
     // Time variables
     time_t seconds;
     seconds = time(NULL);
     int delay = 1000;
 
+
+    /*********** START THREAD WORKFLOW ***********/
+    PMYDATA  pData;
+    DWORD   dwThreadId;
+    HANDLE  hThread;
+    
+    // Allocate memory for thread data.
+    pData = (PMYDATA) HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(MYDATA));
+
+    if (pData == NULL)
+    {
+        // If the array allocation fails, the system is out of memory
+        // so there is no point in trying to print an error message.
+        // Just terminate execution.
+        ExitProcess(2);
+    }
+
+    // Create the thread to begin execution on its own.
+
+    hThread = CreateThread(
+        NULL,                   // default security attributes
+        0,                      // use default stack size  
+        Reducer,       // thread function name
+        pData,          // argument to thread function 
+        0,                      // use default creation flags 
+        &dwThreadId);   // returns the thread identifier 
+
+        // Check the return value for success.
+        // If CreateThread fails, terminate execution. 
+        // This will automatically clean up threads and memory. 
+
+     if (hThread == NULL) 
+     {
+        ExitProcess(3);
+     }
+    // End of main thread creation loop.
+
+    // Wait until all threads have terminated.
+    //WaitForMultipleObjects(1, hThread, TRUE, INFINITE);
+
+    // Close all thread handles and free memory allocations.
+    //CloseHandle(hThread);
+
+    if(pData != NULL)
+    {
+        HeapFree(GetProcessHeap(), 0, pData);
+        pData = NULL;    // Ensure address is not reused.
+    }
+
+    /*********** END THREAD WORKFLOW ***********/
+
+    
+    /*********** START SOCKET WORKFLOW ***********/
 
     WSADATA wsaData;
     SOCKET ConnectSocket = INVALID_SOCKET;
@@ -82,7 +157,7 @@ int main(char **argv)
     hints.ai_protocol = IPPROTO_TCP;
 
     // Resolve the server address and port
-    iResult = getaddrinfo(serverAddress, DEFAULT_PORT, &hints, &result);
+    iResult = getaddrinfo(SERVER_ADDRESS, DEFAULT_PORT, &hints, &result);
     if (iResult != 0) {
         printf("getaddrinfo failed with error: %d\n", iResult);
         WSACleanup();
@@ -121,10 +196,10 @@ int main(char **argv)
 
     // Reduce workflow for all FileMangement and ReduceDLL function calls in seperate thread running in parallel and sharing memory
     // Non-blocking so Main thread will continue to execute  
-    thread task(Reducer(inputDirectory, tempDirectory, outputDirectory));
+    //thread task(Reducer(inputDirectory, tempDirectory, outputDirectory));
 
     //reccurring heartbeat message to server (controller) every k = 1 second 
-    while (Reducer(inputDirectory, tempDirectory, outputDirectory) != 0)
+    while (reducer_end_flag != 0)
     {
         // Send an initial buffer
         iResult = send(ConnectSocket, sendbuf, (int)strlen(sendbuf), 0);
@@ -141,7 +216,7 @@ int main(char **argv)
     printf("Bytes Sent: %ld\n", iResult);
 
     // Reducer thread ended and joined back in main thread
-    task.join();
+    //task.join();
 
         // shutdown the connection since no more data will be sent
     iResult = shutdown(ConnectSocket, SD_SEND);
@@ -169,17 +244,27 @@ int main(char **argv)
     closesocket(ConnectSocket);
     WSACleanup();
 
+    /*********** END SOCKET WORKFLOW ***********/
+
     return 0;
 
 }
 
-int Reducer(string& inputDirectory, string& tempDirectory, string& outputDirectory)
+DWORD WINAPI Reducer(LPVOID lpParam)
 {
     string fileName = "";  // Temporary
     string fileString = "";  // Temporary
     string reduced_string;
 
-    FileManagement FileManage(inputDirectory, outputDirectory, tempDirectory); //Create file management class based on the user inputs
+    MyData* tempData = (MyData*)lpParam;
+
+    MyData data = *tempData;
+
+    cout << data.inputDirectory;
+    cout << data.tempDirectory;
+    cout << data.outputDirectory;
+
+    FileManagement FileManage(data.inputDirectory, data.outputDirectory, data.tempDirectory); //Create file management class based on the user inputs
     cout << "FileManagement Class initialized.\n";
 
     HMODULE reduceDLL = LoadLibraryA("ReduceDLL.dll"); // load dll for library functions
@@ -193,7 +278,7 @@ int Reducer(string& inputDirectory, string& tempDirectory, string& outputDirecto
     ReduceInterface* pReducer = reducerPtr();
 
     //Read from intermediate file and pass data to Reduce class
-    fileString = FileManage.ReadSingleFile(tempDirectory);     //Read single file into single string
+    fileString = FileManage.ReadSingleFile(data.tempDirectory);     //Read single file into single string
     //cout << "Single file read.\n";
 
     pReducer->import(fileString);
@@ -212,12 +297,14 @@ int Reducer(string& inputDirectory, string& tempDirectory, string& outputDirecto
     //cout << "Vector exported to string.\n";
 
     //Sorted, aggregated, and reduced output string is written into final output file
-    FileManage.WriteToOutputFile(outputDirectory, reduced_string);
+    FileManage.WriteToOutputFile(data.outputDirectory, reduced_string);
     cout << "Reduced string written to output file.\n";
 
     system("pause");
 
     FreeLibrary(reduceDLL);
+
+    reducer_end_flag = 1;
 
     return 0;
 }
