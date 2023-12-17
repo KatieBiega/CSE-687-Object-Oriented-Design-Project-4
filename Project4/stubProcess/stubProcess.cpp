@@ -46,7 +46,7 @@ int main()
     char bufferChars[DEFAULT_BUFLEN] = {0}; // contents of the buffer (empty by default)
     int bufferLength = DEFAULT_BUFLEN; // maximum length of the buffer
 
-    int action = 0; // determines process to execute; 1 should mean map, 2 should mean reduce, 3 should terminate the stub process, 0 or any oher value should perform no action
+    int action = 1; // determines process to execute; 1 should mean map, 2 should mean reduce, 3 should terminate the stub process, 0 or any oher value should perform no action
     int runCode = 0; // runtime and/or error code for winsock functions
 
     string commandLineArguments ="\0"; // this should be retrieved from the controller (client) ex. "mapProcess.exe needinputdirectoryhere needtempdirectoryhere needoutputdirectoryhere\0"
@@ -147,7 +147,9 @@ int main()
 
 
     // keep getting input from controller until connection is broken or the controller forcibly terminates the stub process
-    do {
+    while (action == 1 || action == 2) 
+    
+    {
         cout << "Receiving input.\n";
         bytesReceived = recv(stubReceiver, bufferChars, bufferLength, 0);
         if (bytesReceived > 0) {
@@ -237,20 +239,12 @@ int main()
                 CloseHandle(pir.hThread);
             }
 
-            else if (action == 3) // forced shutdown of stub process by controller
+            else // forced shutdown of stub process by controller
             {
                 cout << "Exiting process due to client command.\n";
                 return 0;
             }
-
-            else
-            {
-                //do nothing
-            }
         }
-        else if (bytesReceived == 0)
-            cout << "Connection to controller process lost. Closing the connection...";
-
         else {
             cout << "Failed to receive data. Error: " << WSAGetLastError() << "\n",
             closesocket(stubReceiver);
@@ -258,7 +252,7 @@ int main()
             return 1;
         }
 
-    } while (bytesReceived > 0);
+    };
 
 
 }
