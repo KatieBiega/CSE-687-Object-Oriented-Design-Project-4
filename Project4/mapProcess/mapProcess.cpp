@@ -22,6 +22,7 @@
 #include <tchar.h>
 #include <strsafe.h>
 #include <thread>
+#include <synchapi.h>
 
 #include "../MapDLL/MapInterface.h"
 #include "File Management.h"
@@ -47,28 +48,32 @@ using std::thread;
 
 typedef MapInterface* (*CREATE_MAPPER) ();
 
-// Sample custom data structure for threads to use.
-// This is passed by void pointer so it can be any data type
-// that can be passed using a single void pointer (LPVOID).
-typedef struct MyData {
-    string inputDirectory;
-    string tempDirectory;
-    string outputDirectory;
-} MYDATA, * PMYDATA;
+//Data structure for thread creation
+struct dstruct {
+    string inputDirectory = "\0";
+    string tempDirectory = "\0";
+    string outputDirectory = "\0";
+};
 
 
 DWORD WINAPI Mapper(LPVOID lpParam)
 {
-    string fileName = "";  // Temporary
-    string fileString = "";  // Temporary
-    string inputDirectory = "";  // Temporary
-    string outputDirectory = "";  // Temporary
-    string tempDirectory = "";  // Temporary
-
+    int longDelay = 2000;
+    string fileString = "\0";
+    string tempFilename = "TempFile.txt";
     string mapped_string;
 
-    FileManagement FileManage(inputDirectory, outputDirectory, tempDirectory); //Create file management class based on the user inputs
+    cout << "Attempting to cast lpParam to tempDirectories structure...\n";
+    dstruct* tempDirectories = (dstruct*)lpParam;
+
+    cout << tempDirectories->inputDirectory << "\n";
+    cout << tempDirectories->tempDirectory << "\n";
+    cout << tempDirectories->outputDirectory << "\n";
+
+    FileManagement FileManage(tempDirectories->inputDirectory, tempDirectories->outputDirectory, tempDirectories->tempDirectory); //Create file management class based on the user inputs
     cout << "FileManagement Class initialized.\n";
+
+    Sleep(longDelay);// pause for 2 seconds
 
     HMODULE mapDLL = LoadLibraryA("MapDLL.dll"); // load dll for map functions
     if (mapDLL == NULL) // exit main function if mapDLL is not found
@@ -80,22 +85,26 @@ DWORD WINAPI Mapper(LPVOID lpParam)
     CREATE_MAPPER mapperPtr = (CREATE_MAPPER)GetProcAddress(mapDLL, "CreateMap"); // create pointer to function to create new Map object
     MapInterface* pMapper = mapperPtr();
 
+    Sleep(longDelay);// pause for 2 seconds
+
     fileString = FileManage.ReadAllFiles();     //Read single file into single string
     //cout << "Single file read.\n";
+
+    Sleep(longDelay);// pause for 2 seconds
 
     //cout << "Strings from files passed to map function.\n";
     pMapper->map(fileString);
 
+    Sleep(longDelay);// pause for 2 seconds
+
     //cout << "Mapping complete; exporting resulting string.\n";
     mapped_string = pMapper->vector_export();     //Write mapped output string to intermediate file 
 
+    Sleep(longDelay);// pause for 2 seconds
 
-    FileManage.WriteToTempFile(outputDirectory, mapped_string);
-    cout << "String from mapping written to temp file.\n";
+    FileManage.WriteToTempFile(tempFilename, mapped_string);
 
-    return 0;
-
-    system("pause");
+    Sleep(longDelay);// pause for 2 seconds
 
     FreeLibrary(mapDLL);
 
@@ -106,36 +115,28 @@ DWORD WINAPI Mapper(LPVOID lpParam)
 
 int main(int argc, char** argv)
 {
-    //Directory inputs bieng passed by Stub process
     cout << "mapProcess Test 1" << "\n";
     // Directory inputs bieng passed by Stub process
-    string inputDirectory = "\0";
-    string tempDirectory = "\0";
-    string outputDirectory = "\0";
+    string inputDirectory = "../../../io_files/input_directory";
+    string tempDirectory = "../../../io_files/temp_directory";
+    string outputDirectory = "../../../io_files/output_directory";
 
-    if (argc = 3, argc >3)
+    if (argc < 4) // this process should have 4 arguments: executable name [0] and 3 char arrays for directories
     {
-        // Directory inputs bieng passed by Stub process
-       inputDirectory = argv[0];
-       tempDirectory = argv[1];
-       outputDirectory = argv[2];
+        cout << "One or more arguments for file directories missing. Using default directory paths." << "\n";
+
     }
     else
     {
-        cout << "One or more arguments for file directories missing. Using default values." << "\n";
-        string inputDirectory = "0";
-        string tempDirectory = "1";
-        string outputDirectory = "2";
+        // Directory inputs bieng passed by Stub process
+        inputDirectory = argv[1];
+        tempDirectory = argv[2];
+        outputDirectory = argv[3];
+        outputDirectory += "\0"; // need null terminator at end of final argument
     }
 
-    MyData data; //(MyData*) malloc(sizeof(MyData));
-    data.inputDirectory = inputDirectory;
-    data.tempDirectory = tempDirectory;
-    data.outputDirectory = outputDirectory;
 
-    cout << data.inputDirectory;
-    cout << data.tempDirectory;
-    cout << data.outputDirectory;
+    int iResult = 0;
 
     // Time variables
     time_t seconds;
@@ -143,50 +144,48 @@ int main(int argc, char** argv)
     int delay = 1000;
 
 
- /*********** START THREAD WORKFLOW ***********/
-    PMYDATA  pData = &data;
-    //DWORD   dwThreadId; //not needed if final parameter used in thread creation is is NULL?
+    /*********** START THREAD WORKFLOW ***********/
+        //DWORD   dwThreadId; //not needed if final parameter used in thread creation is is NULL?
     HANDLE  hThread;
-    
-    // Allocate memory for thread data.
-    pData = (PMYDATA) HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(MYDATA));
 
-    if (pData == NULL)
+    dstruct* data = new dstruct();
+
+    data->inputDirectory = inputDirectory;
+    data->tempDirectory = tempDirectory;
+    data->outputDirectory = outputDirectory;
+
+    //cout << data->inputDirectory << "\n";
+    //cout << data->tempDirectory << "\n";
+    //cout << data->outputDirectory << "\n";
+
+    if (data == NULL) // end process if structure object is not created
     {
-        // If the array allocation fails, the system is out of memory
-        // so there is no point in trying to print an error message.
-        // Just terminate execution.
-        ExitProcess(2);
+        return(1);
     }
 
+    cout << "Test 2" << "\n";
+
     // Create the thread to begin execution on its own.
-    hThread = CreateThread(NULL, 0, Mapper, pData, 0, NULL);
+    hThread = CreateThread(NULL, 0, Mapper, (LPVOID*)data, 0, NULL);
 
     if (hThread == NULL)
     {
-        std::cerr << "Failed to create thread." << endl;
+        std::cerr << "Failed to create thread." << "\n";
         return 1;
+    }
+    else {
+        cout << "mapProcess.exe thread created successfully.\n";
     }
 
     // End of main thread creation loop.
 
-    // Wait until all threads have terminated.
-    //WaitForMultipleObjects(1, hThread, TRUE, INFINITE);
-
-    // Close all thread handles and free memory allocations.
-    //CloseHandle(hThread);
-
-    if(pData != NULL)
-    {
-        HeapFree(GetProcessHeap(), 0, pData);
-        pData = NULL;    // Ensure address is not reused.
-    }
+    cout << "Test 3" << "\n";
 
     /*********** END THREAD WORKFLOW ***********/
 
     
     /*********** START SOCKET WORKFLOW ***********/
-
+    
     WSADATA wsaData;
     SOCKET ConnectSocket = INVALID_SOCKET;
     struct addrinfo* result = NULL,
@@ -255,17 +254,42 @@ int main(int argc, char** argv)
 
 
     //reccurring heartbeat message to server (controller) every k = 1 second 
-    while (mapper_end_flag != 0)
+    while (1)
     {
-        // Send an initial buffer
-        iResult = send(ConnectSocket, sendbuf, (int)strlen(sendbuf), 0);
-        if (iResult == SOCKET_ERROR) {
-            printf("send failed with error: %d\n", WSAGetLastError());
-            closesocket(ConnectSocket);
-            WSACleanup();
-            return 1;
+        if (mapper_end_flag == 0) // mapper thread function incomplete
+        {
+            // Send a regular heartbeat
+            iResult = send(ConnectSocket, sendbuf, (int)strlen(sendbuf), 0);
+            if (iResult == SOCKET_ERROR) {
+                printf("mapProcess heartbeat send failed with error: %d\n", WSAGetLastError());
+                closesocket(ConnectSocket);
+                WSACleanup();
+                return 1;
+            }
         }
-        
+        else if (mapper_end_flag == 1) //mapper thread function complete
+        {
+            sendbuf = "mapProcess has completed.";
+            // Send a completion message
+            iResult = send(ConnectSocket, sendbuf, (int)strlen(sendbuf), 0);
+            if (iResult == SOCKET_ERROR) {
+                printf("mapProcess completion signal failed with error: %d\n", WSAGetLastError());
+                closesocket(ConnectSocket);
+                WSACleanup();
+                return 1;
+            }
+            // Wait until thread has been terminated.
+            WaitForSingleObject(hThread, INFINITE);
+
+            // Close thread handle and free memory allocations.
+            CloseHandle(hThread);
+            break; // exit while loop
+        }
+        else //this shouldn't happen unless the code has one or more logic errors
+        {
+            cout << "ERROR: mapper_end_flag set to invalid value: " << mapper_end_flag << "\n";
+            break;
+        }
         Sleep(delay);
     }
 
@@ -283,23 +307,10 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    // Receive until the peer closes the connection
-    do {
-
-        iResult = recv(ConnectSocket, recvbuf, recvbuflen, 0);
-        if (iResult > 0)
-            printf("Bytes received: %d\n", iResult);
-        else if (iResult == 0)
-            printf("Connection closed\n");
-        else
-            printf("recv failed with error: %d\n", WSAGetLastError());
-
-    } while (iResult > 0);
-
     // cleanup
     closesocket(ConnectSocket);
     WSACleanup();
-
+    
      /*********** END SOCKET WORKFLOW ***********/
 
     return 0;
