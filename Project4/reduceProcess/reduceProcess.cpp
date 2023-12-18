@@ -20,7 +20,8 @@
 #include <strsafe.h>
 #include <thread>
 #include <chrono>
-#include <ctime> 
+#include <ctime>
+#include <synchapi.h>
 
 #include "File Management.h"
 #include "../ReduceDLL/ReduceInterface.h"
@@ -49,44 +50,35 @@ using std::cin;
 using std::endl;
 using std::thread;
 
-DWORD WINAPI Reducer(LPVOID lpParam);
 
 typedef ReduceInterface* (*CREATE_REDUCER) ();
 
-
-
-
-
-// Sample custom data structure for threads to use.
-// This is passed by void pointer so it can be any data type
-// that can be passed using a single void pointer (LPVOID).
-typedef struct MyData {
-    string inputDirectory;
-    string tempDirectory;
-    string outputDirectory;
-} MYDATA, * PMYDATA;
+//Data structure for thread creation
+struct dstruct {
+    string inputDirectory = "\0";
+    string tempDirectory = "\0";
+    string outputDirectory = "\0";
+};
 
 
 DWORD WINAPI Reducer(LPVOID lpParam)
 {
-    string fileName = "";  // Temporary
-    string fileString = "";  // Temporary
+    int longDelay = 2000;
     string reduced_string;
     string tempFilename = "TempFile.txt";
     string outputFilename = "FinalOutput.txt";
     string tempFileContent = "\0";
-    string successFilename = "FinalOutput.txt";
-    string successString = "FinalOutput.txt";
+    string successFilename = "SUCCESS.txt";
+    string successString = "\0";
 
-    MyData* tempData = (MyData*)lpParam;
+    cout << "Attempting to cast lpParam to tempDirectories structure...\n";
+    dstruct* tempDirectories = (dstruct*)lpParam;
 
-    MyData data = *tempData;
+    cout << tempDirectories->inputDirectory << "\n";
+    cout << tempDirectories->tempDirectory << "\n";
+    cout << tempDirectories->outputDirectory << "\n";
 
-    cout << data.inputDirectory;
-    cout << data.tempDirectory;
-    cout << data.outputDirectory;
-
-    FileManagement FileManage(data.inputDirectory, data.outputDirectory, data.tempDirectory); //Create file management class based on the user inputs
+    FileManagement FileManage(tempDirectories->inputDirectory, tempDirectories->outputDirectory, tempDirectories->tempDirectory); //Create file management class based on the user inputs
     cout << "FileManagement Class initialized.\n";
 
     HMODULE reduceDLL = LoadLibraryA("ReduceDLL.dll"); // load dll for library functions
@@ -100,73 +92,80 @@ DWORD WINAPI Reducer(LPVOID lpParam)
     ReduceInterface* pReducer = reducerPtr();
 
     tempFileContent = FileManage.ReadFromTempFile(tempFilename);
-    cout << "New string read from temp file.\n";
 
     if (tempFileContent == "\0") {
+        cout << "Temp file content at " + tempDirectories->tempDirectory + "/" + tempFilename + " empty.\n";
         return 1;
     }
+    else {
+        //cout << "New string read from temp file.\n";
+    }
+
+    Sleep(longDelay);// pause for 2 seconds
 
     pReducer->import(tempFileContent);
-    cout << "String imported by reduce class function and placed in vector.\n";
+    //cout << "String imported by reduce class function and placed in vector.\n";
+
+    Sleep(longDelay);// pause for 2 seconds
 
     pReducer->sort();
-    cout << "Vector sorted.\n";
+    //cout << "Vector sorted.\n";
+
+    Sleep(longDelay);// pause for 2 seconds
 
     pReducer->aggregate();
-    cout << "Vector aggregated.\n";
+    //cout << "Vector aggregated.\n";
+
+    Sleep(longDelay);// pause for 2 seconds
 
     pReducer->reduce();
-    cout << "Vector reduced.\n";
+    //cout << "Vector reduced.\n";
+
+    Sleep(longDelay);// pause for 2 seconds
 
     reduced_string = pReducer->vector_export();
-    cout << "Vector exported to string.\n";
+    //cout << "Vector exported to string.\n";
+
+    Sleep(longDelay);// pause for 2 seconds
 
     //Sorted, aggregated, and reduced output string is written into final output file
     FileManage.WriteToOutputFile(outputFilename, reduced_string);
-    cout << "string written to output file.\n";
+    //cout << "string written to output file.\n";
 
     FileManage.WriteToOutputFile(successFilename, successString);
 
     FreeLibrary(reduceDLL);
 
+    delete tempDirectories;
+
     reducer_end_flag = 1;
 
-    return 0;
+    //return 0;
 }
 
 
-int main(int argc, char **argv)
+int main(int argc, char *argv[])
 {
     cout << "reduceProcess Test 1" << "\n";
     // Directory inputs bieng passed by Stub process
-    string inputDirectory = "\0";
-    string tempDirectory = "\0";
-    string outputDirectory = "\0";
+    string inputDirectory = "../../../io_files/input_directory";
+    string tempDirectory = "../../../io_files/temp_directory";
+    string outputDirectory = "../../../io_files/output_directory";
 
-    if (argc >= 3)
+    if (argc < 4) // this process should have 4 arguments: executable name [0] and 3 char arrays for directories
     {
-        // Directory inputs bieng passed by Stub process
-       inputDirectory = argv[0];
-       tempDirectory = argv[1];
-       outputDirectory = argv[2];
+        cout << "One or more arguments for file directories missing. Using default directory paths." << "\n";
+
     }
     else
     {
-        cout << "One or more arguments for file directories missing. Using default values." << "\n";
-        string inputDirectory = "0";
-        string tempDirectory = "1";
-        string outputDirectory = "2";
+        // Directory inputs bieng passed by Stub process
+        inputDirectory = argv[1];
+        tempDirectory = argv[2];
+        outputDirectory = argv[3];
+        outputDirectory += "\0"; // need null terminator at end of final argument
     }
   
-
-    MyData data; //(MyData*) malloc(sizeof(MyData));
-    data.inputDirectory = inputDirectory;
-    data.tempDirectory = tempDirectory;
-    data.outputDirectory = outputDirectory;
-
-    cout << data.inputDirectory;
-    cout << data.tempDirectory;
-    cout << data.outputDirectory;
 
     int iResult = 0;
 
@@ -177,54 +176,53 @@ int main(int argc, char **argv)
 
 
     /*********** START THREAD WORKFLOW ***********/
-    PMYDATA  pData;
         //DWORD   dwThreadId; //not needed if final parameter used in thread creation is is NULL?
     HANDLE  hThread;
-    
-    // Allocate memory for thread data.
-    pData = (PMYDATA) HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(MYDATA));
 
-    if (pData == NULL)
+    dstruct *data = new dstruct();
+
+    data->inputDirectory = inputDirectory;
+    data->tempDirectory = tempDirectory;
+    data->outputDirectory = outputDirectory;
+
+    //cout << data->inputDirectory << "\n";
+    //cout << data->tempDirectory << "\n";
+    //cout << data->outputDirectory << "\n";
+
+    if (data == NULL) // end process if structure object is not created
     {
-        // If the array allocation fails, the system is out of memory
-        // so there is no point in trying to print an error message.
-        // Just terminate execution.
-        ExitProcess(2);
+        return(1);
     }
 
     cout << "Test 2" << "\n";
-    pData->inputDirectory = inputDirectory;
-    pData->tempDirectory = tempDirectory;
-    pData->outputDirectory = outputDirectory;
 
     // Create the thread to begin execution on its own.
-    hThread = CreateThread(NULL, 0, Reducer, pData, 0, NULL);
+    hThread = CreateThread(NULL, 0, Reducer, (LPVOID * )data, 0, NULL);
 
     if (hThread == NULL)
     {
         std::cerr << "Failed to create thread." << "\n";
         return 1;
     }
+    else {
+        cout << "reduceProcess.exe thread created successfully.\n";
+    }
 
     // End of main thread creation loop.
 
     // Wait until all threads have terminated.
-    //WaitForMultipleObjects(1, hThread, TRUE, INFINITE);
+    WaitForSingleObject(hThread, INFINITE);
 
     // Close all thread handles and free memory allocations.
     CloseHandle(hThread);
 
-    if(pData != NULL)
-    {
-        HeapFree(GetProcessHeap(), 0, pData);
-        pData = NULL;    // Ensure address is not reused.
-    }
+    cout << "Test 3" << "\n";
 
     /*********** END THREAD WORKFLOW ***********/
 
     
     /*********** START SOCKET WORKFLOW ***********/
-
+    
     WSADATA wsaData;
     SOCKET ConnectSocket = INVALID_SOCKET;
     struct addrinfo* result = NULL,
@@ -287,17 +285,38 @@ int main(int argc, char **argv)
     //thread task(Reducer(inputDirectory, tempDirectory, outputDirectory));
 
     //reccurring heartbeat message to server (controller) every k = 1 second 
-    while (reducer_end_flag != 0)
+    while (1)
     {
-        // Send an initial buffer
-        iResult = send(ConnectSocket, sendbuf, (int)strlen(sendbuf), 0);
-        if (iResult == SOCKET_ERROR) {
-            printf("reduceProcess failed to send message. Error: %d\n", WSAGetLastError());
-            closesocket(ConnectSocket);
-            WSACleanup();
-            return 1;
+        if (reducer_end_flag == 0) // mapper thread function incomplete
+        {
+            // Send a regular heartbeat
+            iResult = send(ConnectSocket, sendbuf, (int)strlen(sendbuf), 0);
+            if (iResult == SOCKET_ERROR) {
+                printf("reduceProcess heartbeat send failed with error: %d\n", WSAGetLastError());
+                closesocket(ConnectSocket);
+                WSACleanup();
+                return 1;
+            }
+            
         }
-        
+        else if (reducer_end_flag == 1) //mapper thread function complete
+        {
+            sendbuf = "reduceProcess has completed.";
+            // Send a completion message
+            iResult = send(ConnectSocket, sendbuf, (int)strlen(sendbuf), 0);
+            if (iResult == SOCKET_ERROR) {
+                printf("reduceProcess completion signal failed with error: %d\n", WSAGetLastError());
+                closesocket(ConnectSocket);
+                WSACleanup();
+                return 1;
+            }
+            break; // exit while loop
+        }
+        else //this shouldn't happen unless the code has one or more logic errors
+        {
+            cout << "ERROR: reducer_end_flag set to invalid value: " << reducer_end_flag << "\n";
+            break;
+        }
         Sleep(delay);
     }
 
@@ -317,7 +336,7 @@ int main(int argc, char **argv)
     // cleanup
     closesocket(ConnectSocket);
     WSACleanup();
-
+    
     /*********** END SOCKET WORKFLOW ***********/
 
     return 0;
