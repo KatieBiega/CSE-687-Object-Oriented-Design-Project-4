@@ -31,6 +31,8 @@ string FileManagement::ReadAllFiles() {
 
         fileStream.open(file.path().string());
 
+        content = "";
+
         while (getline(fileStream, inputLine))
         {
             content = content + inputLine;

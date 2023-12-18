@@ -150,7 +150,7 @@ int main()
     do 
     
     {
-        cout << "Waiting for input.\n";
+        cout << "Stub process waiting for input.\n";
         bytesReceived = recv(stubReceiver, bufferChars, bufferLength, 0);
         if (bytesReceived > 0) {
 
@@ -165,7 +165,7 @@ int main()
             if (action == 1) // map process
             {
 
-                commandLineArguments = "mapProcess.exe " + commandLineArguments + "\0";
+                commandLineArguments = "mapProcess.exe " + commandLineArguments + " ";
 
 
                 commandLength = commandLineArguments.length();
@@ -205,7 +205,7 @@ int main()
 
             else if (action == 2) // reduce process
             {
-                commandLineArguments = "reduceProcess.exe " + commandLineArguments + "\0";
+                commandLineArguments = "reduceProcess.exe " + commandLineArguments + " ";
                 commandLength = commandLineArguments.length();
                 cout << "Arguments for reduce process:" << commandLineArguments << "\n";
                 wtemp = (wchar_t*)malloc(4 * commandLineArguments.size());

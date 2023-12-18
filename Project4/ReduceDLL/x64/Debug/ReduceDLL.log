@@ -1,11 +1,1 @@
-﻿  pch.cpp
-  dllmain.cpp
-  ReduceDLL.cpp
-C:\Users\WindowsMobile\source\repos\Project4\Project4\ReduceDLL\ReduceDLL.cpp(55,13): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
-C:\Users\WindowsMobile\source\repos\Project4\Project4\ReduceDLL\ReduceDLL.cpp(56,11): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
-C:\Users\WindowsMobile\source\repos\Project4\Project4\ReduceDLL\ReduceDLL.cpp(71,13): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
-C:\Users\WindowsMobile\source\repos\Project4\Project4\ReduceDLL\ReduceDLL.cpp(72,11): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
-C:\Users\WindowsMobile\source\repos\Project4\Project4\ReduceDLL\ReduceDLL.cpp(75,28): warning C4267: '=': conversion from 'size_t' to 'int', possible loss of data
-  Generating Code...
-     Creating library C:\Users\WindowsMobile\source\repos\Project4\Project4\x64\Debug\ReduceDLL.lib and object C:\Users\WindowsMobile\source\repos\Project4\Project4\x64\Debug\ReduceDLL.exp
-  ReduceDLL.vcxproj -> C:\Users\WindowsMobile\source\repos\Project4\Project4\x64\Debug\ReduceDLL.dll
+﻿  ReduceDLL.vcxproj -> C:\Users\tmreeves\OneDrive - Syracuse University\Computer Engineering\CSE 687 Object Oriented Design\Project 4\Project4\x64\Debug\ReduceDLL.dll

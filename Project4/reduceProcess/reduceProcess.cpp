@@ -33,7 +33,7 @@
 #pragma comment (lib, "AdvApi32.lib")
 
 #define DEFAULT_BUFLEN 512
-#define DEFAULT_PORT "11112"
+#define DEFAULT_PORT "11113"
 #define SERVER_ADDRESS "127.0.0.1"
 #define BUF_SIZE 255
 
@@ -140,22 +140,24 @@ DWORD WINAPI Reducer(LPVOID lpParam)
 
     reducer_end_flag = 1;
 
-    //return 0;
+    return 0;
 }
 
 
 int main(int argc, char *argv[])
 {
     cout << "reduceProcess Test 1" << "\n";
-    // Directory inputs bieng passed by Stub process
-    string inputDirectory = "../../../io_files/input_directory";
-    string tempDirectory = "../../../io_files/temp_directory";
-    string outputDirectory = "../../../io_files/output_directory";
+    // Directory inputs being passed by Stub process
+    string inputDirectory = "\0";
+    string tempDirectory = "\0";
+    string outputDirectory = "\0";
 
-    if (argc < 4) // this process should have 4 arguments: executable name [0] and 3 char arrays for directories
+    if (argc < 4) // this process should have 4 arguments: executable name argv[0] and 3 char arrays for directories
     {
         cout << "One or more arguments for file directories missing. Using default directory paths." << "\n";
-
+        inputDirectory = "../../../io_files/input_directory";
+        tempDirectory = "../../../io_files/temp_directory";
+        outputDirectory = "../../../io_files/output_directory";
     }
     else
     {
@@ -163,7 +165,6 @@ int main(int argc, char *argv[])
         inputDirectory = argv[1];
         tempDirectory = argv[2];
         outputDirectory = argv[3];
-        outputDirectory += "\0"; // need null terminator at end of final argument
     }
   
 
@@ -210,11 +211,6 @@ int main(int argc, char *argv[])
 
     // End of main thread creation loop.
 
-    // Wait until all threads have terminated.
-    WaitForSingleObject(hThread, INFINITE);
-
-    // Close all thread handles and free memory allocations.
-    CloseHandle(hThread);
 
     cout << "Test 3" << "\n";
 
@@ -310,6 +306,11 @@ int main(int argc, char *argv[])
                 WSACleanup();
                 return 1;
             }
+            // Wait until all threads have terminated.
+            WaitForSingleObject(hThread, INFINITE);
+
+            // Close all thread handles and free memory allocations.
+            CloseHandle(hThread);
             break; // exit while loop
         }
         else //this shouldn't happen unless the code has one or more logic errors
