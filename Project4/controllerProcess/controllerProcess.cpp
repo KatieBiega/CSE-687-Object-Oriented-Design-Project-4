@@ -19,22 +19,37 @@ using std::cout;
 using std::cin;
 using std::endl;
 
-void SendMessage(SOCKET socket, const string& message) {
+void SendMessage(SOCKET socket, const string& message) // controller should ONLY be sending messages to the stub, not to map or reduce
+{
 
     cout << "Message sent: " << message.c_str() << "\n";
 
     send(socket, message.c_str(), message.size(), 0);
 }
 
-string ReceiveMessage(SOCKET socket) {
+void ReceiveMessage(SOCKET socket) // controller should ONLY receive messages from map and reduce, not the stub
+{
+    int bytesReceived = 0;
     const int bufferSize = 1024;
     char buffer[bufferSize];
     memset(buffer, 0, bufferSize);
 
     cout << "Listening for data...\n";
+    do{
+        bytesReceived = recv(socket, buffer, bufferSize - 1, 0);
 
-    recv(socket, buffer, bufferSize - 1, 0);
-    return string(buffer);
+        if (bytesReceived > 0) {
+            cout << string(buffer) << "\n";
+        }
+        else if (bytesReceived == 0) {
+            cout << "Client disconnected.\n";
+            break;
+        }
+        else {
+            cout << "Controller recv error: " << WSAGetLastError() << "\n";
+            break;
+        }
+    } while (1);
 }
 
 
@@ -63,7 +78,7 @@ int main() {
 
     SOCKET stubSocket = socket(AF_INET, SOCK_STREAM, 0);
     if (stubSocket == INVALID_SOCKET) {
-        cout << "Failed to create socket." << endl;
+        cout << "Failed to create stubSocket." << endl;
         WSACleanup();
         return 1;
     }
@@ -72,24 +87,34 @@ int main() {
     string mapData = "\0";
     string reduceData = "\0";
 
-    SOCKET mapServerSocket = socket(AF_INET, SOCK_STREAM, 0);
-    SOCKET reduceServerSocket = socket(AF_INET, SOCK_STREAM, 0);
+    SOCKET mapListenerSocket = INVALID_SOCKET; 
+    mapListenerSocket = socket(AF_INET, SOCK_STREAM, 0);
+    if (mapListenerSocket == INVALID_SOCKET) {
+        cout << "Failed to create mapListenerSocket." << endl;
+        WSACleanup();
+        return 1;
+    }
+    
+    SOCKET reduceListenerSocket = INVALID_SOCKET;
+    reduceListenerSocket = socket(AF_INET, SOCK_STREAM, 0);
+    if (reduceListenerSocket == INVALID_SOCKET) {
+        cout << "Failed to create reduceListenerSocket." << endl;
+        WSACleanup();
+        return 1;
+    }
 
-    sockaddr_in mapServerAddr, reduceServerAddr;
+    sockaddr_in mapListenerAddr, reduceListenerAddr;
 
-    mapServerSocket = socket(AF_INET, SOCK_STREAM, 0);
-    reduceServerSocket = socket(AF_INET, SOCK_STREAM, 0);
+    mapListenerAddr.sin_family = AF_INET;
+    mapListenerAddr.sin_port = htons(11112);  // Example port for map server
+    mapListenerAddr.sin_addr.s_addr = INADDR_ANY;
 
-    mapServerAddr.sin_family = AF_INET;
-    mapServerAddr.sin_port = htons(11112);  // Example port for map server
-    mapServerAddr.sin_addr.s_addr = INADDR_ANY;
+    reduceListenerAddr.sin_family = AF_INET;
+    reduceListenerAddr.sin_port = htons(11112);  // Example port for reduce server
+    reduceListenerAddr.sin_addr.s_addr = INADDR_ANY;
 
-    reduceServerAddr.sin_family = AF_INET;
-    reduceServerAddr.sin_port = htons(11112);  // Example port for reduce server
-    reduceServerAddr.sin_addr.s_addr = INADDR_ANY;
-
-    SOCKET mapClientSocket = NULL;
-    SOCKET reduceClientSocket = NULL;
+    SOCKET mapReceiverSocket = NULL;
+    SOCKET reduceReceiverSocket = NULL;
 
     sockaddr_in stubAddr;
     stubAddr.sin_family = AF_INET;
@@ -134,53 +159,52 @@ int main() {
         if (action == "1") // run this code if the stub is instructed to create a map process
         {
             // Bind and listen for map server socket
-            if (bind(mapServerSocket, (struct sockaddr*)&mapServerAddr, sizeof(mapServerAddr)) == SOCKET_ERROR) {
-                cout << "Failed to bind map server socket." << endl;
-                closesocket(mapServerSocket);
+            if (bind(mapListenerSocket, (struct sockaddr*)&mapListenerAddr, sizeof(mapListenerAddr)) == SOCKET_ERROR) {
+                cout << "Failed to bind mapListenerSocket socket." << endl;
+                closesocket(mapListenerSocket);
                 WSACleanup();
                 return 1;
             }
             else {
-                cout << "Controller's map server socket bound successfully.\n";
+                cout << "Controller's mapProcess socket bound successfully.\n";
             }
 
-            if (listen(mapServerSocket, SOMAXCONN) == SOCKET_ERROR) {
-                cout << "Listen failed on map server socket." << endl;
-                closesocket(mapServerSocket);
+            if (listen(mapListenerSocket, SOMAXCONN) == SOCKET_ERROR) {
+                cout << "Listen failed on mapListenerSocket socket." << endl;
+                closesocket(mapListenerSocket);
                 WSACleanup();
                 return 1;
             }
             else {
-                cout << "Controller is listening for map process...\n";
+                cout << "Controller is listening for mapProcess...\n";
             }
 
             // Accept connection
-            mapClientSocket = accept(mapServerSocket, nullptr, nullptr);
-            if (reduceClientSocket == INVALID_SOCKET) {
+            mapReceiverSocket = accept(mapListenerSocket, nullptr, nullptr);
+            if (mapReceiverSocket == INVALID_SOCKET) {
                 cout << "Failed to accept connection." << endl;
-                closesocket(mapServerSocket);
+                closesocket(mapListenerSocket);
                 WSACleanup();
                 return 1;
             }
             else {
-                cout << "Controller accepted connection from map client.\n";
+                cout << "Controller accepted connection from mapProcess client.\n";
             }
 
-            while (mapData != "Map error" && mapData != "Map complete") {
-                mapData = ReceiveMessage(mapClientSocket);
-                cout << "Received data in controller from map process: " << mapData << endl;
-            }
-            closesocket(mapClientSocket);
-            closesocket(mapServerSocket);
+            cout << "Beginning to receive messages from mapProcess client...\n";
+            ReceiveMessage(mapReceiverSocket);
+
+            closesocket(mapReceiverSocket);
+            closesocket(mapListenerSocket);
         }
 
         else if (action == "2") // run this code if the stub is instructed to create a reduce process
         {
 
             // Bind and listen for reduce server socket
-            if (bind(reduceServerSocket, (struct sockaddr*)&reduceServerAddr, sizeof(reduceServerAddr)) == SOCKET_ERROR) {
+            if (bind(reduceListenerSocket, (struct sockaddr*)&reduceListenerAddr, sizeof(reduceListenerAddr)) == SOCKET_ERROR) {
                 cout << "Failed to bind reduce server socket." << endl;
-                closesocket(reduceServerSocket);
+                closesocket(reduceListenerSocket);
                 WSACleanup();
                 return 1;
             }
@@ -188,9 +212,9 @@ int main() {
                 cout << "Controller's reduce server socket bound successfully.\n";
             }
 
-            if (listen(reduceServerSocket, SOMAXCONN) == SOCKET_ERROR) {
+            if (listen(reduceListenerSocket, SOMAXCONN) == SOCKET_ERROR) {
                 cout << "Listen failed on reduce server socket." << endl;
-                closesocket(reduceServerSocket);
+                closesocket(reduceListenerSocket);
                 WSACleanup();
                 return 1;
             }
@@ -199,10 +223,10 @@ int main() {
             }
 
             // Accept connection
-            reduceClientSocket = accept(reduceServerSocket, nullptr, nullptr);
-            if (reduceClientSocket == INVALID_SOCKET) {
+            reduceReceiverSocket = accept(reduceListenerSocket, nullptr, nullptr);
+            if (reduceReceiverSocket == INVALID_SOCKET) {
                 cout << "Failed to accept connection." << endl;
-                closesocket(reduceServerSocket);
+                closesocket(reduceListenerSocket);
                 WSACleanup();
                 return 1;
             }
@@ -210,13 +234,11 @@ int main() {
                 cout << "Controller accepted connection from reduce client.\n";
             }
 
-            while (reduceData != "Reduce error" && reduceData != "Reduce complete") {
-                reduceData = ReceiveMessage(reduceClientSocket);
-                cout << "Received data in controller from reduce process: " << reduceData << endl;
-            }
-
-            closesocket(reduceClientSocket);
-            closesocket(reduceServerSocket);
+            cout << "Beginning to receive messages from reduce client...\n";
+            ReceiveMessage(reduceReceiverSocket);
+   
+            closesocket(reduceReceiverSocket);
+            closesocket(reduceListenerSocket);
         }
 
         else {
