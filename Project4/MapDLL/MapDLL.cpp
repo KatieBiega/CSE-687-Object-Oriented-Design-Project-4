@@ -11,7 +11,7 @@
 */
 
 #include "pch.h"
-#include <cstdlib>
+#include <regex>
 #include <iostream>
 #include <fstream>
 #include <map>
@@ -24,6 +24,8 @@
 
 using std::stringstream;
 using std::replace;
+//using std::regex_replace;
+//using std::regex;
 
 void Map::map(string& line)
 {
@@ -32,13 +34,21 @@ void Map::map(string& line)
 
 	//Remove all punctuation and special characters except spaces from the input line
 	int index;
-	while ((index = line.find_first_of(".,-&!?\\;*+[]<>()'")) != string::npos)
+	while ((index = line.find_first_of(".,-&!?\\;*+[]<>()'\r\n")) != string::npos)
 	{
 		line.erase(index, 1);
 		//cout << "Erase line in mapping.\n";
 	}
 
-	//Replace additonal special charcters with space for delimiting
+	//Replace additional special characters with space for delimiting
+	//regex_replace(line, regex(R"(\r\n)"), " ");
+	//regex_replace(line, regex(R"(\n)"), " ");
+	//regex_replace(line, regex(R"(\r)"), " ");
+	//regex_replace(line, regex(R"(:)"), " ");
+	//regex_replace(line, regex(R"(-)"), " ");
+
+	//old replace functions
+	replace(line.begin(), line.end(), '\r', ' ');
 	replace(line.begin(), line.end(), '\n', ' ');
 	replace(line.begin(), line.end(), ':', ' ');
 	replace(line.begin(), line.end(), '-', ' ');

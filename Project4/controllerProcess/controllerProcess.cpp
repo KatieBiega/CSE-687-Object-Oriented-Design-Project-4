@@ -2,6 +2,7 @@
 #define WIN32_LEAN_AND_MEAN
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
 
+#define SERVER_ADDRESS "127.0.0.1"
 
 #include <iostream>
 #include <string>
@@ -40,6 +41,7 @@ void ReceiveMessage(SOCKET socket) // controller should ONLY receive messages fr
 
         if (bytesReceived > 0) {
             cout << string(buffer) << "\n";
+
         }
         else if (bytesReceived == 0) {
             cout << "Client disconnected.\n";
@@ -55,12 +57,36 @@ void ReceiveMessage(SOCKET socket) // controller should ONLY receive messages fr
 
 int main() {
 
-    string action = "0";
-    string inputDirectory = "\0";
-    string tempDirectory = "\0";
-    string outputDirectory = "\0";
+    string action = "NULL";
+    string inputDirectory = "NULL";
+    string tempDirectory = "NULL";
+    string outputDirectory = "NULL";
     string stubMessage = "\0"; // this should be formatted according to this example: "1inputdirectory tempdirectory outputdirectory"
 
+    
+    
+    SOCKET mapReceiverSocket = NULL;
+    SOCKET mapListenerSocket = INVALID_SOCKET;
+
+    sockaddr_in mapListenerAddr;
+    mapListenerAddr.sin_family = AF_INET;
+    mapListenerAddr.sin_port = htons(11112);  // Example port for map server
+    mapListenerAddr.sin_addr.s_addr = INADDR_ANY;
+
+    SOCKET reduceReceiverSocket = NULL;
+    SOCKET reduceListenerSocket = INVALID_SOCKET;
+
+    sockaddr_in reduceListenerAddr;
+    reduceListenerAddr.sin_family = AF_INET;
+    reduceListenerAddr.sin_port = htons(11113);  // Example port for reduce server
+    reduceListenerAddr.sin_addr.s_addr = INADDR_ANY;
+
+    sockaddr_in stubAddr;
+
+
+    stubAddr.sin_family = AF_INET;
+    stubAddr.sin_port = htons(12345);
+    stubAddr.sin_addr.s_addr = inet_addr(SERVER_ADDRESS);
 
 
     WSADATA wsaDataMapReduce;
@@ -85,41 +111,8 @@ int main() {
 
     string controllerData = "\0";
     string mapData = "\0";
-    string reduceData = "\0";
+    string reduceData = "\0"; 
 
-    SOCKET mapListenerSocket = INVALID_SOCKET; 
-    mapListenerSocket = socket(AF_INET, SOCK_STREAM, 0);
-    if (mapListenerSocket == INVALID_SOCKET) {
-        cout << "Failed to create mapListenerSocket." << endl;
-        WSACleanup();
-        return 1;
-    }
-    
-    SOCKET reduceListenerSocket = INVALID_SOCKET;
-    reduceListenerSocket = socket(AF_INET, SOCK_STREAM, 0);
-    if (reduceListenerSocket == INVALID_SOCKET) {
-        cout << "Failed to create reduceListenerSocket." << endl;
-        WSACleanup();
-        return 1;
-    }
-
-    sockaddr_in mapListenerAddr, reduceListenerAddr;
-
-    mapListenerAddr.sin_family = AF_INET;
-    mapListenerAddr.sin_port = htons(11112);  // Example port for map server
-    mapListenerAddr.sin_addr.s_addr = INADDR_ANY;
-
-    reduceListenerAddr.sin_family = AF_INET;
-    reduceListenerAddr.sin_port = htons(11112);  // Example port for reduce server
-    reduceListenerAddr.sin_addr.s_addr = INADDR_ANY;
-
-    SOCKET mapReceiverSocket = NULL;
-    SOCKET reduceReceiverSocket = NULL;
-
-    sockaddr_in stubAddr;
-    stubAddr.sin_family = AF_INET;
-    stubAddr.sin_port = htons(12345);
-    stubAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
 
     if (connect(stubSocket, (struct sockaddr*)&stubAddr, sizeof(stubAddr)) == SOCKET_ERROR) {
         cout << "Failed to connect to stub server." << endl;
@@ -132,24 +125,40 @@ int main() {
 
     while (1) {
 
-        //prompt for inputs
-        cout << "Enter the input directory: ";
-        cin >> inputDirectory;
+        
 
-        cout << "Enter the temp directory: ";
-        cin >> tempDirectory;
-
-        cout << "Enter the output directory: ";
-        cin >> outputDirectory;
+        cout << "\n\n====Map and Reduce====\n\n";
 
         cout << "Actions:\n";
         cout << "1: Map files in input directory\n";
         cout << "2: Reduce file in temp directory\n";
         cout << "Anything else: Terminate the stub process\n";
-        cout << "Enter the number of an action:";
+        cout << "Enter the number of an action: ";
         cin >> action;
 
-        stubMessage = action + inputDirectory + " " + tempDirectory + " " + outputDirectory + "\0";
+        if (action != "1" && action != "2") {
+            stubMessage = action;
+            cout << "Sending termination command to stub process." << "\n";
+        }
+        else {
+            //prompt for inputs
+            if (action == "1")
+            {
+                cout << "Enter the input directory: ";
+                cin >> inputDirectory;
+            }
+
+            cout << "Enter the temp directory: ";
+            cin >> tempDirectory;
+
+            if (action == "2")
+            {
+                cout << "Enter the output directory: ";
+                cin >> outputDirectory;
+            }
+
+            stubMessage = action + inputDirectory + " " + tempDirectory + " " + outputDirectory + "\0";
+        }
 
         SendMessage(stubSocket, stubMessage);
 
@@ -158,6 +167,14 @@ int main() {
 
         if (action == "1") // run this code if the stub is instructed to create a map process
         {
+            //create or re-create socket
+            mapListenerSocket = socket(AF_INET, SOCK_STREAM, 0);
+            if (mapListenerSocket == INVALID_SOCKET) {
+                cout << "Failed to create mapListenerSocket." << endl;
+                WSACleanup();
+                return 1;
+            }
+
             // Bind and listen for map server socket
             if (bind(mapListenerSocket, (struct sockaddr*)&mapListenerAddr, sizeof(mapListenerAddr)) == SOCKET_ERROR) {
                 cout << "Failed to bind mapListenerSocket socket." << endl;
@@ -200,6 +217,13 @@ int main() {
 
         else if (action == "2") // run this code if the stub is instructed to create a reduce process
         {
+            //create or re-create socket
+            reduceListenerSocket = socket(AF_INET, SOCK_STREAM, 0);
+            if (reduceListenerSocket == INVALID_SOCKET) {
+                cout << "Failed to create reduceListenerSocket." << endl;
+                WSACleanup();
+                return 1;
+            }
 
             // Bind and listen for reduce server socket
             if (bind(reduceListenerSocket, (struct sockaddr*)&reduceListenerAddr, sizeof(reduceListenerAddr)) == SOCKET_ERROR) {
@@ -242,7 +266,7 @@ int main() {
         }
 
         else {
-            cout << "Closing stub and comtroller process." << "\n";
+            cout << "Closing controller process." << "\n";
             break;
         }
 

@@ -107,7 +107,7 @@ DWORD WINAPI Mapper(LPVOID lpParam)
     Sleep(longDelay);// pause for 2 seconds
 
     FreeLibrary(mapDLL);
-
+    cout << "Mapping thread complete.\n";
     mapper_end_flag = 1;
 
     return 0;
@@ -117,14 +117,16 @@ int main(int argc, char** argv)
 {
     cout << "mapProcess Test 1" << "\n";
     // Directory inputs bieng passed by Stub process
-    string inputDirectory = "../../../io_files/input_directory";
-    string tempDirectory = "../../../io_files/temp_directory";
-    string outputDirectory = "../../../io_files/output_directory";
+    string inputDirectory = "\0";
+    string tempDirectory = "\0";
+    string outputDirectory = "\0";
 
-    if (argc < 4) // this process should have 4 arguments: executable name [0] and 3 char arrays for directories
+    if (argc < 4) // this process should have 4 arguments: executable name argv[0] and 3 char arrays for directories
     {
         cout << "One or more arguments for file directories missing. Using default directory paths." << "\n";
-
+        inputDirectory = "../../../io_files/input_directory";
+        tempDirectory = "../../../io_files/temp_directory";
+        outputDirectory = "../../../io_files/output_directory";
     }
     else
     {
@@ -132,7 +134,6 @@ int main(int argc, char** argv)
         inputDirectory = argv[1];
         tempDirectory = argv[2];
         outputDirectory = argv[3];
-        outputDirectory += "\0"; // need null terminator at end of final argument
     }
 
 
@@ -192,15 +193,7 @@ int main(int argc, char** argv)
         * ptr = NULL,
         hints;
     const char* sendbuf = "Map Process is running."; // Message to be sent to controller
-    char recvbuf[DEFAULT_BUFLEN];
-    int iResult;
-    int recvbuflen = DEFAULT_BUFLEN;
 
-    // Validate  parameters
-    if (argc != 2) {
-        printf("usage: %s server-name\n", argv[0]);
-        return 1;
-    }
 
     // Initialize Winsock
     iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -215,7 +208,7 @@ int main(int argc, char** argv)
     hints.ai_protocol = IPPROTO_TCP;
 
     // Resolve the server address and port
-    iResult = getaddrinfo(argv[1], DEFAULT_PORT, &hints, &result);
+    iResult = getaddrinfo(SERVER_ADDRESS, DEFAULT_PORT, &hints, &result);
     if (iResult != 0) {
         printf("Map getaddrinfo failed with error: %d\n", iResult);
         WSACleanup();
@@ -237,6 +230,7 @@ int main(int argc, char** argv)
         // Connect to server.
         iResult = connect(ConnectSocket, ptr->ai_addr, (int)ptr->ai_addrlen);
         if (iResult == SOCKET_ERROR) {
+            cout << "mapProcess failed to connect to server. Error: " << WSAGetLastError() << "\n";
             closesocket(ConnectSocket);
             ConnectSocket = INVALID_SOCKET;
             continue;
