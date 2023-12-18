@@ -147,10 +147,10 @@ int main()
 
 
     // keep getting input from controller until connection is broken or the controller forcibly terminates the stub process
-    while (action == 1 || action == 2) 
+    do 
     
     {
-        cout << "Receiving input.\n";
+        cout << "Waiting for input.\n";
         bytesReceived = recv(stubReceiver, bufferChars, bufferLength, 0);
         if (bytesReceived > 0) {
 
@@ -245,14 +245,22 @@ int main()
                 return 0;
             }
         }
-        else {
-            cout << "Failed to receive data. Error: " << WSAGetLastError() << "\n",
+
+        else if (bytesReceived == 0) {
+            cout << "Controller connection to stub closed.\n",
             closesocket(stubReceiver);
             WSACleanup();
             return 1;
         }
 
-    };
+        else {
+            cout << "Failed to receive data. Error: " << WSAGetLastError() << "\n",
+            closesocket(stubReceiver);
+            WSACleanup();
+            return 1;
+        } 
+
+    }while (1);
 
 
 }
